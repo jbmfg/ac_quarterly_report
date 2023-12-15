@@ -15,38 +15,6 @@ def _normalize_json(data):
                 data[x][key] = ", ".join(row[key])
     return data, nones
 
-
-resources = (
-    ("publisher", "/api/bit9platform/v1/publisher?limit=", 0),
-    ("computer", "/api/bit9platform/v1/computer?q=daysOffline<32&limit=", 0),
-    ("updater", "/api/bit9platform/v1/updater?limit=", 0),
-    ("policy", "/api/bit9platform/v1/policy?limit=", 0),
-    ("scriptRule", "/api/bit9platform/v1/scriptRule?limit=", 0),
-    ("serverPerformance", "/api/bit9platform/v1/serverPerformance?limit=", 0),
-    ("trustedDirectory", "/api/bit9platform/v1/trustedDirectory?limit=", 0),
-    ("trustedUser", "/api/bit9platform/v1/trustedUser?limit=", 0),
-    ("serverConfig", "/api/bit9platform/v1/serverConfig?limit=", 0),
-    ("driftReport", "/api/bit9platform/v1/driftReport?limit=", 0),
-    ("global_approval_counts", "/api/bit9platform/v1/fileRule?q=sourceType!3&filestate:2&lazyApproval:false&group=datecreated&limit=", 0),
-    ("global_approval_counts_2", "/api/bit9platform/v1/fileRule?q=sourceType!3&filestate:2&lazyApproval:false&group=datecreated&grouptype=n&groupstep=1", 0),
-    ("td_approval_counts", "/api/bit9platform/v1/fileRule?q=sourceType:2&group=sourceId&limit=", 0),
-    ("approval_summary", "/api/bit9platform/v1/fileRule?group=sourceType&limit=", 0),
-    ("rule_hits", "/api/bit9platform/v1/event?group=ruleName&limit=", 0),
-    ("rapfig_events", "/api/bit9platform/v1/event?q=rapfigName!&q=timestamp>-30d&group=rapfigName&subgroup=RuleName&limit=", 0),
-    ("extensions", "/api/bit9platform/v1/fileCatalog?q=dateCreated>-30d&group=fileExtension&limit=", 0),
-    ("unapprovedWriters", "/api/bit9platform/v1/event?expand=fileCatalogId&q=subtype:1003&q=fileCatalogId_effectiveState:Unapproved&q=param1:DiscoveredBy[Kernel:Rename]*|DiscoveredBy[Kernel:Create]*|DiscoveredBy[Kernel:Write]*&limit=", 10000),
-    ("customRule", "/api/bit9platform/restricted/customRule?limit=", 0),
-    ("approvalRequestSummary", "/api/bit9platform/restricted/approvalRequestSummary?limit=", 0),
-    ("appTemplate", "/api/bit9platform/restricted/appTemplate?limit=", 0),
-    ("block_events", "/api/bit9platform/v1/event?q=subtype:801&limit=", 10000),
-    ("agent_config", "/api/bit9platform/restricted/agentConfig?limit=", 0),
-    ("cache_checks", "/api/bit9platform/v1/event?q=subtype:426&q=timestamp>-30d&limit=", 0),
-    ("oldest_event", "/api/bit9platform/v1/event?sort=timestamp&limit=", 1),
-    ("event_count_30d", "/api/bit9platform/v1/event?q=timestamp>-30d&limit=", -1)
-    )
-
-db = sqlite_connector.sqlite_db("ben.db")
-
 def get_data(url):
     server = "https://cbp.local.benjitsu.com"
     api_key = "1BA405C7-DC0C-4C90-9C37-9E7B472BD871"
@@ -56,7 +24,6 @@ def get_data(url):
     }
     r = requests.get(f"{server}{url}", headers=headers)
     return r
-
 
 def create_table_txt():
     text = []
@@ -97,6 +64,36 @@ def insert_data():
 
 
 if __name__ == "__main__":
+    db = sqlite_connector.sqlite_db("ben.db")
+    resources = (
+        ("publisher", "/api/bit9platform/v1/publisher?limit=", 0),
+        ("computer", "/api/bit9platform/v1/computer?q=daysOffline<32&limit=", 0),
+        ("updater", "/api/bit9platform/v1/updater?limit=", 0),
+        ("policy", "/api/bit9platform/v1/policy?limit=", 0),
+        ("scriptRule", "/api/bit9platform/v1/scriptRule?limit=", 0),
+        ("serverPerformance", "/api/bit9platform/v1/serverPerformance?limit=", 0),
+        ("trustedDirectory", "/api/bit9platform/v1/trustedDirectory?limit=", 0),
+        ("trustedUser", "/api/bit9platform/v1/trustedUser?limit=", 0),
+        ("serverConfig", "/api/bit9platform/v1/serverConfig?limit=", 0),
+        ("driftReport", "/api/bit9platform/v1/driftReport?limit=", 0),
+        ("global_approval_counts", "/api/bit9platform/v1/fileRule?q=sourceType!3&filestate:2&lazyApproval:false&group=datecreated&limit=", 0),
+        ("global_approval_counts_2", "/api/bit9platform/v1/fileRule?q=sourceType!3&filestate:2&lazyApproval:false&group=datecreated&grouptype=n&groupstep=1", 0),
+        ("td_approval_counts", "/api/bit9platform/v1/fileRule?q=sourceType:2&group=sourceId&limit=", 0),
+        ("approval_summary", "/api/bit9platform/v1/fileRule?group=sourceType&limit=", 0),
+        ("rule_hits", "/api/bit9platform/v1/event?group=ruleName&limit=", 0),
+        ("rapfig_events", "/api/bit9platform/v1/event?q=rapfigName!&q=timestamp>-30d&group=rapfigName&subgroup=RuleName&limit=", 0),
+        ("extensions", "/api/bit9platform/v1/fileCatalog?q=dateCreated>-30d&group=fileExtension&limit=", 0),
+        ("unapprovedWriters", "/api/bit9platform/v1/event?expand=fileCatalogId&q=subtype:1003&q=fileCatalogId_effectiveState:Unapproved&q=param1:DiscoveredBy[Kernel:Rename]*|DiscoveredBy[Kernel:Create]*|DiscoveredBy[Kernel:Write]*&limit=", 10000),
+        ("customRule", "/api/bit9platform/restricted/customRule?limit=", 0),
+        ("approvalRequestSummary", "/api/bit9platform/restricted/approvalRequestSummary?limit=", 0),
+        ("appTemplate", "/api/bit9platform/restricted/appTemplate?limit=", 0),
+        ("block_events", "/api/bit9platform/v1/event?q=subtype:801&limit=", 10000),
+        ("agent_config", "/api/bit9platform/restricted/agentConfig?limit=", 0),
+        ("cache_checks", "/api/bit9platform/v1/event?q=subtype:426&q=timestamp>-30d&limit=", 0),
+        ("oldest_event", "/api/bit9platform/v1/event?sort=timestamp&limit=", 1),
+        ("event_count_30d", "/api/bit9platform/v1/event?q=timestamp>-30d&limit=", -1)
+        )
+
     insert_data()
     #text = create_table_txt()
     #with open("ben.txt", "w") as f:

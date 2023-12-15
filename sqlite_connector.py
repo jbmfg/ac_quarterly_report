@@ -601,7 +601,7 @@ class sqlite_db(object):
         self.engine = self._get_engine(filename)
 
     def _get_engine(self, filename):
-        engine = sqlalchemy.create_engine(f"sqlite+pysqlite:///./{filename}", echo=False)
+        engine = sqlalchemy.create_engine(f"sqlite+pysqlite:///./{filename}", echo=True)
         engine.connect()
         Base.metadata.create_all(engine)
         return engine
@@ -614,9 +614,20 @@ class sqlite_db(object):
             session.execute(insert)
             session.commit()
 
+    def query_data(self, query):
+        with sqlalchemy.orm.Session(self.engine) as session:
+            table = Base.metadata.tables[tablename]
+            stmt = "select * FROM computer WHERE computer.id = :x"
+            stmt = sqlalchemy.sql.text(stmt)
+            result = session.execute(stmt, {"x":1})
+            #result = session.execute(sqlalchemy.select(table).where(id == 1))
+            print(result.all())
+
+
+
+
+
 if __name__ == "__main__":
     db = sqlite_db("ben.db")
-    engine = get_engine()
-    table = "publishers"
-    insert_data(engine, table, data)
+    db.query_data("computer", None)
 

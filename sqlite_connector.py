@@ -559,7 +559,7 @@ class Oldest_Event(Base):
     process: sqlalchemy.orm.Mapped[typing.Optional[str]] = sqlalchemy.orm.mapped_column()
     installerFileName: sqlalchemy.orm.Mapped[typing.Optional[str]] = sqlalchemy.orm.mapped_column()
     param1: sqlalchemy.orm.Mapped[str] = sqlalchemy.orm.mapped_column()
-    param2: sqlalchemy.orm.Mapped[str] = sqlalchemy.orm.mapped_column()
+    param2: sqlalchemy.orm.Mapped[typing.Optional[str]] = sqlalchemy.orm.mapped_column()
     param3: sqlalchemy.orm.Mapped[typing.Optional[str]] = sqlalchemy.orm.mapped_column()
     policyId: sqlalchemy.orm.Mapped[typing.Optional[str]] = sqlalchemy.orm.mapped_column()
     policyName: sqlalchemy.orm.Mapped[typing.Optional[str]] = sqlalchemy.orm.mapped_column()
@@ -601,7 +601,7 @@ class sqlite_db(object):
         self.engine = self._get_engine(filename)
 
     def _get_engine(self, filename):
-        engine = sqlalchemy.create_engine(f"sqlite+pysqlite:///./{filename}", echo=True)
+        engine = sqlalchemy.create_engine(f"sqlite+pysqlite:///./{filename}", echo=False)
         engine.connect()
         Base.metadata.create_all(engine)
         return engine
@@ -616,12 +616,9 @@ class sqlite_db(object):
 
     def query_data(self, query):
         with sqlalchemy.orm.Session(self.engine) as session:
-            table = Base.metadata.tables[tablename]
-            stmt = "select * FROM computer WHERE computer.id = :x"
-            stmt = sqlalchemy.sql.text(stmt)
+            stmt = sqlalchemy.sql.text(query)
             result = session.execute(stmt, {"x":1})
-            #result = session.execute(sqlalchemy.select(table).where(id == 1))
-            print(result.all())
+        return result
 
 
 

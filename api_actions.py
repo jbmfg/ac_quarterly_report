@@ -45,6 +45,9 @@ def create_table_txt():
                     dt = dt.replace("<class \'", "").replace("\'>", "")
                     text.append(f'    {i}: sqlalchemy.orm.Mapped[{dt}] = sqlalchemy.orm.mapped_column({extra})\n')
             text.append("\n\n")
+    with open("tables.txt", "w") as f:
+        for line in text:
+            f.write(line)
     return text
 
 def insert_data():
@@ -53,13 +56,10 @@ def insert_data():
         r = get_data(url+str(limit))
         if r.json():
             data, nones = _normalize_json(r.json())
-            print(name, len(data))
             for x in range(0, len(data), 500):
                 if x + 500 <= len(data):
-                    print(x, x+500)
                     db.insert_data(name, data[x:x+500])
                 else:
-                    print(x, len(data))
                     db.insert_data(name, data[x:len(data)])
 
 
@@ -94,8 +94,6 @@ if __name__ == "__main__":
         ("event_count_30d", "/api/bit9platform/v1/event?q=timestamp>-30d&limit=", -1)
         )
 
+    #create_table_txt()
+    #input("stop")
     insert_data()
-    #text = create_table_txt()
-    #with open("ben.txt", "w") as f:
-    #    for line in text:
-    #        f.write(line)

@@ -620,10 +620,6 @@ class sqlite_db(object):
             result = session.execute(stmt, {"x":1})
         return result
 
-
-
-
-
 if __name__ == "__main__":
     db = sqlite_db("ben.db")
     db.query_data("computer", None)

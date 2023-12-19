@@ -89,6 +89,7 @@ def main():
         )
     for x, resource in enumerate(resources):
         name, url, limit = resource
+        db.delete_data(name)
         printProgressBar("Getting API resources...", x, len(resources))
         location = f"{server}{url}{str(limit)}"
         data = api_actions.get_data(location, api_key)

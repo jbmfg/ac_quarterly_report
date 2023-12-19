@@ -617,10 +617,18 @@ class sqlite_db(object):
     def query_data(self, query):
         with sqlalchemy.orm.Session(self.engine) as session:
             stmt = sqlalchemy.sql.text(query)
-            result = session.execute(stmt, {"x":1})
+            result = session.execute(stmt, {"x":1}).fetchall()
         return result
 
+    def delete_data(self, table):
+        if table in Base.metadata.tables:
+            table = Base.metadata.tables[table]
+            with sqlalchemy.orm.Session(self.engine) as session:
+                num_rows_deleted = session.query(table).delete()
+                session.commit()
+
 if __name__ == "__main__":
-    db = sqlite_db("ben.db")
-    db.query_data("computer", None)
+    db = sqlite_db("ac_exec_report.db")
+    data = db.query_data("select * from computer")
+    delete = db.delete_data("computer")
 

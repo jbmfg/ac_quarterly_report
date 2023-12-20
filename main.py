@@ -1,7 +1,10 @@
 import json
 import os
+import requests
+import dateparser
 import api_actions
 import sqlite_connector
+from bs4 import BeautifulSoup
 
 
 class ConfigFileMissing(Exception):
@@ -50,15 +53,19 @@ def _open_config():
         data = json.load(f)
     return data
 
-def main():
-    # Check config
-    result = _check_config()
-    if result:
-        raise ConfigFileMissing(result)
-    else:
-        config = _open_config()
-    server, api_key = config["server_address"], config["api_key"]
+def fake_requests():
+    import os
     db = sqlite_connector.sqlite_db("ac_exec_report.db")
+    for i in [f for f in os.listdir("./fake_data") if f.endswith(".json")]:
+        if "tops_" in i: continue
+        table = i.replace(".json", "")
+        data = json.load(open(os.path.join("./fake_data", i), "r"))
+        import api_actions
+        data = api_actions._normalize_json(data)[0]
+        db.insert_data(table, data)
+
+def get_api_data(db, config):
+    server, api_key = config["server_address"], config["api_key"]
     resources = (
         ("appTemplate", "/api/bit9platform/restricted/appTemplate?limit=", 0),
         ("publisher", "/api/bit9platform/v1/publisher?limit=", 0),
@@ -100,7 +107,55 @@ def main():
             else:
                 db.insert_data(name, data[x:len(data)])
 
+def get_eol_data(db):
+    urls = [
+        ["server", "/8.10/cb-ac-oer/GUID-21E6E704-237F-4415-8B50-DE380C6D9ECA.html"],
+        ["ac_win", "/services/cb-appc-oer-winagent-desktop/GUID-32AC0CFE-6CB3-4E96-A7B3-D9BA1F32BE0F.html"],
+        ["ac_mac", "/services/cb-appc-oer-macosagent/GUID-D6B6EEA2-8665-4938-9D27-87D100903A30.html"],
+        ["ac_lin", "/services/cb-appc-oer-linuxagent/GUID-054C2FCD-DA66-4D83-AABD-0F90EC543DAA.html"],
+        ]
+    levels = []
+    for os, url in urls:
+        url = "https://docs.vmware.com/en/VMware-Carbon-Black-App-Control" + url
+        data = requests.get(url).content
+        soup = BeautifulSoup(data, features="html.parser")
+        table_bodies = soup.find_all("tbody")
+        for i in table_bodies:
+            rows = i.find_all("tr")
+            row_data = []
+            for row in rows:
+                entries = row.find_all("td")
+                items = [entry.get_text() for entry in entries]
+                if items[0].lower().strip().startswith("none"):
+                    continue
+                if any(items):
+                    levels += [[os] + items]
+    for x, row in enumerate(levels):
+        if len(row) == 6:
+            # the server tables include the GA date, which we dont care about
+            row = row[:2] + row[3:]
+        for xx, ri in enumerate(row):
+            # First two items are os and version
+            if xx < 2 or not ri: continue
+            if len(ri) > 7: # handle dates with the day included
+                levels[x][xx] = dateparser.parse(ri, settings={'TIMEZONE': 'UTC'}).date().isoformat()
+            else: # handle dates that are mon/year only
+                levels[x][xx] = dateparser.parse(ri, settings={'TIMEZONE': 'UTC'}).date().replace(day=1).isoformat()
+    fields = ["product", "release", "enter_standard", "enter_extended", "enter_eol"]
+    levels = [dict(zip(fields, level)) for level in levels]
+    db.insert_data("eol", levels)
 
+def main():
+    # Check config
+    result = _check_config()
+    if result:
+        raise ConfigFileMissing(result)
+    else:
+        config = _open_config()
+    db = sqlite_connector.sqlite_db("ac_exec_report.db")
+    get_eol_data(db)
+    get_api_data(db, config)
 
 if __name__ == "__main__":
-    main()
+    #main()
+    fake_requests()

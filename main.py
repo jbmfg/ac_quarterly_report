@@ -1,11 +1,13 @@
+import datetime
 import json
 import os
+import re
 import requests
 import dateparser
 import api_actions
 import sqlite_connector
+from collections import defaultdict
 from bs4 import BeautifulSoup
-
 
 class ConfigFileMissing(Exception):
     pass
@@ -107,12 +109,12 @@ def get_api_data(db, config):
             else:
                 db.insert_data(name, data[x:len(data)])
 
-def get_eol_data(db):
+def get_version_support_status(db):
     urls = [
         ["server", "/8.10/cb-ac-oer/GUID-21E6E704-237F-4415-8B50-DE380C6D9ECA.html"],
-        ["ac_win", "/services/cb-appc-oer-winagent-desktop/GUID-32AC0CFE-6CB3-4E96-A7B3-D9BA1F32BE0F.html"],
-        ["ac_mac", "/services/cb-appc-oer-macosagent/GUID-D6B6EEA2-8665-4938-9D27-87D100903A30.html"],
-        ["ac_lin", "/services/cb-appc-oer-linuxagent/GUID-054C2FCD-DA66-4D83-AABD-0F90EC543DAA.html"],
+        ["win", "/services/cb-appc-oer-winagent-desktop/GUID-32AC0CFE-6CB3-4E96-A7B3-D9BA1F32BE0F.html"],
+        ["mac", "/services/cb-appc-oer-macosagent/GUID-D6B6EEA2-8665-4938-9D27-87D100903A30.html"],
+        ["lin", "/services/cb-appc-oer-linuxagent/GUID-054C2FCD-DA66-4D83-AABD-0F90EC543DAA.html"],
         ]
     levels = []
     for os, url in urls:
@@ -131,19 +133,78 @@ def get_eol_data(db):
                 if any(items):
                     levels += [[os] + items]
     for x, row in enumerate(levels):
+        if len(row) == 4:
+            levels[x].insert(3, None)
         if len(row) == 6:
             # the server tables include the GA date, which we dont care about
+            levels[x] = row[:2] + row[3:]
             row = row[:2] + row[3:]
         for xx, ri in enumerate(row):
             # First two items are os and version
-            if xx < 2 or not ri: continue
-            if len(ri) > 7: # handle dates with the day included
-                levels[x][xx] = dateparser.parse(ri, settings={'TIMEZONE': 'UTC'}).date().isoformat()
-            else: # handle dates that are mon/year only
-                levels[x][xx] = dateparser.parse(ri, settings={'TIMEZONE': 'UTC'}).date().replace(day=1).isoformat()
-    fields = ["product", "release", "enter_standard", "enter_extended", "enter_eol"]
+            if xx < 2: continue
+            # Parse the date fields
+            if ri:
+                # Replace the day with 01 for items that match format %Y/%m
+                if len(ri) in (6, 7):
+                    ri = dateparser.parse(ri).replace(day=1)
+                    # Add 31 days and then subtract the day number to get the last day of the month
+                    ri = ri + datetime.timedelta(days=31)
+                    ri = ri - datetime.timedelta(days=ri.day)
+                else:
+                    ri = dateparser.parse(ri)
+                levels[x][xx] = ri.date().isoformat()
+            else:
+                levels[x][xx] = "Unknown"
+        today = datetime.datetime.date(datetime.datetime.now())
+    for i in levels:
+        st = datetime.datetime.strptime(i[2], "%Y-%m-%d").date() if i[2] != "Unknown" else "Unknown"
+        ex = datetime.datetime.strptime(i[3], "%Y-%m-%d").date() if i[3] != "Unknown" else "Unknown"
+        eol = datetime.datetime.strptime(i[4], "%Y-%m-%d").date() if i[4] != "Unknown" else "Unknown"
+        if eol != "Unknown" and today > eol:
+            i.append("eol")
+        elif ex != "Unknown" and today > ex:
+            i.append("ex")
+        elif st != "Unknown":
+            i.append("st")
+        else:
+            i.append("Unknown")
+    fields = ["os", "release", "enter_standard", "enter_extended", "enter_eol", "current_level"]
     levels = [dict(zip(fields, level)) for level in levels]
+    db.delete_data("eol")
     db.insert_data("eol", levels)
+
+def deployed_version_status(db):
+    # Recursive function to get current level
+    def cur_lev(os, v):
+        print(v)
+        while len(v) > 0:
+            if v[:-1] in lu_dict[os]:
+                return lu_dict[os][v[:-1]]
+            else:
+                return cur_lev(os, v[:-1])
+        return "EOL"
+    lookup = db.query_data("select os, REPLACE(release, '.x', ''), UPPER(current_level) from eol;")
+    lu_dict = defaultdict(lambda: defaultdict(str))
+    for os, version, level in lookup:
+        lu_dict[os][version] = level
+    print(json.dumps(lu_dict, indent=2))
+    query = """
+    select distinct agentVersion,
+    substring(osShortName, 0, 4)
+    from computer
+    where lastPollDate >= (select max(date(lastPollDate, '-30 days')) from computer)
+    order by agentVersion, osShortName;
+    """
+    all_versions = [list(i) for i in db.query_data(query)]
+    for x, row in enumerate(all_versions):
+        version, os = row
+        print(f"THIS IS V: {version}, {os}")
+        all_versions[x].append(cur_lev(os.lower(), version))
+    fields = ["version", "os", "support_level"]
+    all_versions = [dict(zip(fields, level)) for level in all_versions]
+    db.delete_data("deployed_version_status")
+    db.insert_data("deployed_version_status", all_versions)
+
 
 def main():
     # Check config
@@ -153,9 +214,10 @@ def main():
     else:
         config = _open_config()
     db = sqlite_connector.sqlite_db("ac_exec_report.db")
-    get_eol_data(db)
-    get_api_data(db, config)
+    #get_api_data(db, config)
+    #get_version_support_status(db)
+    deployed_version_status(db)
 
 if __name__ == "__main__":
-    #main()
-    fake_requests()
+    main()
+    #fake_requests()

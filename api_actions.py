@@ -43,7 +43,8 @@ def create_table_txt(name, data):
     text.append(f"class {name.title()}(Base):\n")
     text.append(f'    __tablename__ = "{name}"\n')
     data, nones = _normalize_json(data)
-    for x, i in enumerate(data[0].keys()):
+    if not data: return
+    for x, i in enumerate(data[-1].keys()):
         extra = "primary_key=True" if x==0 else ""
         dt = type(data[0][i])
         if i in nones:
@@ -52,7 +53,7 @@ def create_table_txt(name, data):
         else:
             dt = str(dt)
             dt = dt.replace("<class \'", "").replace("\'>", "")
-            text.append(f'    {i}: sqlalchemy.orm.Mapped[{dt}] = sqlalchemy.orm.mapped_column({extra})\n')
+            text.append(f'    {i}: sqlalchemy.orm.Mapped[typing.Optional[{dt}]] = sqlalchemy.orm.mapped_column({extra})\n')
     text.append("\n\n")
     with open("tables.txt", "a") as f:
         for line in text:

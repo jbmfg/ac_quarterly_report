@@ -64,7 +64,7 @@ def fake_requests():
         data = json.load(open(os.path.join("./fake_data", i), "r"))
         import api_actions
         data = api_actions._normalize_json(data)[0]
-        db.insert_data(table, data)
+        if data: db.insert_data(table, data)
 
 def get_api_data(db, config):
     server, api_key = config["server_address"], config["api_key"]
@@ -94,7 +94,9 @@ def get_api_data(db, config):
         ("agent_config", "/api/bit9platform/restricted/agentConfig?limit=", 0),
         ("cache_checks", "/api/bit9platform/v1/event?q=subtype:426&q=timestamp>-30d&limit=", 0),
         ("oldest_event", "/api/bit9platform/v1/event?sort=timestamp&limit=", 1),
-        ("event_count_30d", "/api/bit9platform/v1/event?q=timestamp>-30d&limit=", -1)
+        ("event_count_30d", "/api/bit9platform/v1/event?q=timestamp>-30d&limit=", -1),
+        ("policy_changes", "/api/bit9platform/v1/event?q=subtype:406&limit=", 10000),
+        ("console_logins", "/api/bit9platform/v1/event?q=subtype:300&limit=", 10000)
         )
     for x, resource in enumerate(resources):
         name, url, limit = resource
@@ -102,6 +104,8 @@ def get_api_data(db, config):
         printProgressBar("Getting API resources...", x, len(resources))
         location = f"{server}{url}{str(limit)}"
         data = api_actions.get_data(location, api_key)
+        #with open(f"{name}.json", "w") as f:
+        #    json.dump(data, f)
         if not data: continue
         for x in range(0, len(data), 500):
             if x + 500 <= len(data):
@@ -176,7 +180,6 @@ def get_version_support_status(db):
 def deployed_version_status(db):
     # Recursive function to get current level
     def cur_lev(os, v):
-        print(v)
         while len(v) > 0:
             if v[:-1] in lu_dict[os]:
                 return lu_dict[os][v[:-1]]
@@ -187,7 +190,6 @@ def deployed_version_status(db):
     lu_dict = defaultdict(lambda: defaultdict(str))
     for os, version, level in lookup:
         lu_dict[os][version] = level
-    print(json.dumps(lu_dict, indent=2))
     query = """
     select distinct agentVersion,
     substring(osShortName, 0, 4)
@@ -198,13 +200,11 @@ def deployed_version_status(db):
     all_versions = [list(i) for i in db.query_data(query)]
     for x, row in enumerate(all_versions):
         version, os = row
-        print(f"THIS IS V: {version}, {os}")
         all_versions[x].append(cur_lev(os.lower(), version))
     fields = ["version", "os", "support_level"]
     all_versions = [dict(zip(fields, level)) for level in all_versions]
     db.delete_data("deployed_version_status")
     db.insert_data("deployed_version_status", all_versions)
-
 
 def main():
     # Check config
@@ -215,7 +215,7 @@ def main():
         config = _open_config()
     db = sqlite_connector.sqlite_db("ac_exec_report.db")
     #get_api_data(db, config)
-    #get_version_support_status(db)
+    get_version_support_status(db)
     deployed_version_status(db)
 
 if __name__ == "__main__":

@@ -761,6 +761,7 @@ class sqlite_db(object):
         with sqlalchemy.orm.Session(self.engine) as session:
             stmt = sqlalchemy.sql.text(query)
             result = session.execute(stmt, {"x":1}).fetchall()
+            result = [list(i) for i in result]
         return result
 
     def delete_data(self, table):

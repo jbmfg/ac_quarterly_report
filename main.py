@@ -89,11 +89,12 @@ def get_api_data(db, config):
         ("extensions", "/api/bit9platform/v1/fileCatalog?q=dateCreated>-30d&group=fileExtension&limit=", 0),
         ("unapprovedWriters", "/api/bit9platform/v1/event?expand=fileCatalogId&q=subtype:1003&q=fileCatalogId_effectiveState:Unapproved&q=param1:DiscoveredBy[Kernel:Rename]*|DiscoveredBy[Kernel:Create]*|DiscoveredBy[Kernel:Write]*&limit=", 10000),
         ("customRule", "/api/bit9platform/restricted/customRule?limit=", 0),
-        ("approvalRequestSummary", "/api/bit9platform/restricted/approvalRequestSummary?limit=", 0),
+        ("approvalRequest", "/api/bit9platform/v1/approvalRequest?limit=", 10000),
         ("block_events", "/api/bit9platform/v1/event?q=subtype:801&limit=", 10000),
         ("agent_config", "/api/bit9platform/restricted/agentConfig?limit=", 0),
         ("cache_checks", "/api/bit9platform/v1/event?q=subtype:426&q=timestamp>-30d&limit=", 0),
-        ("oldest_event", "/api/bit9platform/v1/event?sort=timestamp&limit=", 1),
+        ("oldest_event", "/api/bit9platform/v1/event?sort=receivedtimestamp&limit=", 1),
+        ("newest_event", "/api/bit9platform/v1/event?sort=receivedtimestamp DESC&limit=", 1),
         ("event_count_30d", "/api/bit9platform/v1/event?q=timestamp>-30d&limit=", -1),
         ("policy_changes", "/api/bit9platform/v1/event?q=subtype:406&limit=", 10000),
         ("console_logins", "/api/bit9platform/v1/event?q=subtype:300&limit=", 10000)
@@ -104,8 +105,9 @@ def get_api_data(db, config):
         printProgressBar("Getting API resources...", x, len(resources))
         location = f"{server}{url}{str(limit)}"
         data = api_actions.get_data(location, api_key)
-        #with open(f"{name}.json", "w") as f:
-        #    json.dump(data, f)
+        #if "approval" in name.lower():
+        #    with open(f"{name}.json", "w") as f:
+        #        json.dump(data, f)
         if not data: continue
         for x in range(0, len(data), 500):
             if x + 500 <= len(data):

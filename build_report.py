@@ -101,6 +101,7 @@ class ac_report(object):
         chart.has_legend = False
         chart.chart_title.text_frame.text = title
         chart.chart_title.text_frame.paragraphs[0].font.size = pptx.util.Pt(20)
+        chart.has_title = False
         if chart.has_legend:
             chart.legend.include_in_layout = False
             chart.legend.position = pptx.enum.chart.XL_LEGEND_POSITION.BOTTOM
@@ -357,7 +358,12 @@ class ac_report(object):
         x, y = Inches(ss[0]), Inches(ss[1])
         sx, sy = Inches(ss[2]), Inches(ss[3])
         ld = Pt(ss[4])
-        dir_lookup = {"up": pptx.enum.shapes.MSO_SHAPE.UP_ARROW, "down": pptx.enum.shapes.MSO_SHAPE.DOWN_ARROW}
+        dir_lookup = {
+            "up": pptx.enum.shapes.MSO_SHAPE.UP_ARROW, 
+            "down": pptx.enum.shapes.MSO_SHAPE.DOWN_ARROW,
+            "left": pptx.enum.shapes.MSO_SHAPE.LEFT_ARROW,
+            "right": pptx.enum.shapes.MSO_SHAPE.RIGHT_ARROW,
+        }
         arrow = dir_lookup[ss[5]]
         shape = slide.shapes.add_shape(arrow, x, y, sx, sy)
         if text:
@@ -718,26 +724,9 @@ class ac_report(object):
         ts = [4.58, 16.11, 4.27, 1, 18]
         text = "Over the last 30 days there were:"
         self.create_text_box(self.main_slide, text, ts, alignment="center")
-
-        query = """
-        select
-        case ar.resolution
-            when "0" then "Not Resolved"
-            when "1" then "Rejected"
-            when "2" then "Approved"
-            when "3" then "Rule Change"
-            when "4" then "Installer"
-            when "5" then "Updater"
-            when "6" then "Publisher"
-            when "7" then "Other"
-        end as resolution_type,
-        count(*)
-        from approvalRequest ar
-        where dateCreated >= (select max(date(timestamp, '-30 days')) from block_events)
-        group by resolution_type;
-        """
-        data = self.db.query_data(query)
-        total_approvals = sum([i[1] for i in data])
+        
+        query = "select count(*) from approvalRequest;"
+        total_approvals = self.db.query_data(query)[0][0]
 
         query = """
         select
@@ -758,6 +747,37 @@ class ac_report(object):
         text = "Approval Requests Submitted"
         ts[1] = 18.8
         self.create_text_box(self.main_slide, text, ts, alignment="center")
+
+    def add_approval_breakdown_chart(self):
+        query = """
+        select
+        case ar.resolution
+            when "0" then "Not Resolved"
+            when "1" then "Rejected"
+            when "2" then "Approved"
+            when "3" then "Rule Change"
+            when "4" then "Installer"
+            when "5" then "Updater"
+            when "6" then "Publisher"
+            when "7" then "Other"
+        end as resolution_type,
+        count(*)
+        from approvalRequest ar
+        where dateCreated >= (select max(date(timestamp, '-30 days')) from block_events)
+        group by resolution_type;
+        """
+        data = self.db.query_data(query)
+        cs = ["Approval Request Resolution", 9.32, 15.87, 4.16, 4.16]
+        self.create_pie_chart(data, cs)
+
+
+    def add_arrows(self):
+        arrow_s = [4.3, 17.01, 1.5, .5, 10, "left", 0]
+        self.create_arrow(self.main_slide, arrow_s)
+
+        arrow_s = [7.15, 18.47, 2.15, .5, 10, "right", 0]
+        self.create_arrow(self.main_slide, arrow_s)
+
 
 
 
@@ -782,6 +802,8 @@ def create_report():
     report.add_blocks_over_time_chart()
     report.add_top_blocking_files_table()
     report.add_block_text()
+    report.add_arrows()
+    report.add_approval_breakdown_chart()
 
     report.delete_slide(1)
     report.prs.save(report.filename)

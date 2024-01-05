@@ -613,7 +613,7 @@ class Computer(Base):
     kernelDebugLevel: sqlalchemy.orm.Mapped[typing.Optional[str]] = sqlalchemy.orm.mapped_column()
     debugFlags: sqlalchemy.orm.Mapped[typing.Optional[str]] = sqlalchemy.orm.mapped_column()
     activeDebugLevel: sqlalchemy.orm.Mapped[typing.Optional[str]] = sqlalchemy.orm.mapped_column()
-    activeKernelDebugLevel: sqlalchemy.orm.Mapped[typing.Optional[int]] = sqlalchemy.orm.mapped_column()
+    activeKernelDebugLevel: sqlalchemy.orm.Mapped[typing.Optional[str]] = sqlalchemy.orm.mapped_column()
     activeDebugFlags: sqlalchemy.orm.Mapped[typing.Optional[str]] = sqlalchemy.orm.mapped_column()
     debugDuration: sqlalchemy.orm.Mapped[typing.Optional[str]] = sqlalchemy.orm.mapped_column()
     ccLevel: sqlalchemy.orm.Mapped[typing.Optional[str]] = sqlalchemy.orm.mapped_column()
@@ -629,7 +629,7 @@ class Computer(Base):
     agentMemoryDumps: sqlalchemy.orm.Mapped[typing.Optional[str]] = sqlalchemy.orm.mapped_column()
     systemMemoryDumps: sqlalchemy.orm.Mapped[typing.Optional[str]] = sqlalchemy.orm.mapped_column()
     initializing: sqlalchemy.orm.Mapped[typing.Optional[str]] = sqlalchemy.orm.mapped_column()
-    tamperProtectionActive: sqlalchemy.orm.Mapped[typing.Optional[str]] = sqlalchemy.orm.mapped_column()
+    tamperProtectionActive: sqlalchemy.orm.Mapped[typing.Optional[bool]] = sqlalchemy.orm.mapped_column()
     agentCacheSize: sqlalchemy.orm.Mapped[typing.Optional[str]] = sqlalchemy.orm.mapped_column()
     agentQueueSize: sqlalchemy.orm.Mapped[typing.Optional[str]] = sqlalchemy.orm.mapped_column()
     forceUpgrade: sqlalchemy.orm.Mapped[typing.Optional[str]] = sqlalchemy.orm.mapped_column()
@@ -641,7 +641,9 @@ class Computer(Base):
     templateTrackModsOnly: sqlalchemy.orm.Mapped[typing.Optional[str]] = sqlalchemy.orm.mapped_column()
     cbSensorVersion: sqlalchemy.orm.Mapped[typing.Optional[str]] = sqlalchemy.orm.mapped_column()
     cbSensorFlags: sqlalchemy.orm.Mapped[typing.Optional[str]] = sqlalchemy.orm.mapped_column()
+    cbSensorStatus: sqlalchemy.orm.Mapped[typing.Optional[str]] = sqlalchemy.orm.mapped_column()
     cbSensorId: sqlalchemy.orm.Mapped[typing.Optional[str]] = sqlalchemy.orm.mapped_column()
+    yaraVersion: sqlalchemy.orm.Mapped[typing.Optional[int]] = sqlalchemy.orm.mapped_column()
     SCEPStatus: sqlalchemy.orm.Mapped[typing.Optional[str]] = sqlalchemy.orm.mapped_column()
 
 
@@ -1042,6 +1044,21 @@ class sqlite_db(object):
                 session.execute(insert)
                 session.commit()
 
+    def insert_data_one_at_a_time(self, table, data):
+        CHUNKS = 1
+        for x in range(0, len(data), CHUNKS):
+            print(x)
+            with sqlalchemy.orm.Session(self.engine) as session:
+                table = Base.metadata.tables[table]
+                insert = sqlalchemy.insert(table)
+                if x + CHUNKS <= len(data):
+                    insert = insert.values(data[x:x+CHUNKS])
+                    print(data[x:x+CHUNKS])
+                else:
+                    insert = insert.values(data[x:len(data)])
+                session.execute(insert)
+                session.commit()
+ 
     def query_data(self, query):
         with sqlalchemy.orm.Session(self.engine) as session:
             stmt = sqlalchemy.sql.text(query)

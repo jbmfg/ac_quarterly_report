@@ -221,5 +221,5 @@ def main():
     deployed_version_status(db)
 
 if __name__ == "__main__":
-    main()
-    #fake_requests()
+    #main()
+    fake_requests()

@@ -210,6 +210,7 @@ class ac_report(object):
         value_axis = chart.value_axis
         value_axis.tick_labels.font.size = pptx.util.Pt(10)
         value_axis.has_major_gridlines = False
+        value_axis.minimum_scale = 0
         if legend:
             chart.legend.include_in_layout = True
             chart.legend.position = pptx.enum.chart.XL_LEGEND_POSITION.TOP
@@ -465,8 +466,8 @@ class ac_report(object):
         select c.agentVersion || '(' || substr(c.osShortName, 0, 4) || ')' || " -" || dvs.support_level as version,
         count(*)
         from computer c
-        left join deployed_version_status dvs on 
-            c.agentVersion = dvs.version and 
+        left join deployed_version_status dvs on
+            c.agentVersion = dvs.version and
             lower(substr(c.osShortName, 0, 4)) = lower(dvs.os)
         where c.lastPollDate >= (select max(date(lastPollDate, '-30 days')) from computer)
         and c.enforcementLevel <> 0
@@ -554,8 +555,8 @@ class ac_report(object):
         cats = [f" in {row[0]}" for row in data]
 
         count_text_box = "\n".join(counts)
-        ts = [8.58, 5.88, 1, .76, 24]
-        self.create_text_box(self.main_slide, count_text_box, ts, color=red)
+        ts = [8.2, 5.87, 1, .76, 24]
+        self.create_text_box(self.main_slide, count_text_box, ts, color=red, alignment="right")
 
         cat_text_box = "\n".join(cats)
         ts = [9.01, 5.87, 4, .76, 24]
@@ -624,9 +625,11 @@ class ac_report(object):
         purges["days"] = int(int(purges["PurgeEventLogPeriod"]) / (60 * 60 * 24))
         words = inflect.engine()
         purges["events"] = words.number_to_words(purges["PurgeEventThreshold"]).title()
-        dt_format = "%Y-%m-%dT%H:%M:%S.%fz"
-        newest = datetime.strptime(purges["newest_event"], dt_format)
-        oldest = datetime.strptime(purges["oldest_event"], dt_format)
+        dt_format = "%Y-%m-%dT%H:%M:%S.%fZ"
+        #newest = datetime.strptime(purges["newest_event"].upper(), dt_format)
+        #oldest = datetime.strptime(purges["oldest_event"].upper(), dt_format)
+        newest = dateparser.parse(purges["newest_event"])
+        oldest = dateparser.parse(purges["oldest_event"])
         purges["retention"] = (newest - oldest).days
         red = pptx.dml.color.RGBColor(0xFF, 0x00, 0x00)
         green = pptx.dml.color.RGBColor(0x00, 0xFF, 0x00)
@@ -638,80 +641,95 @@ class ac_report(object):
         ts = [6.48, 9.85, 1, 1, 24]
         self.create_text_box(self.main_slide, text, ts, color=color, alignment="center")
 
-    def add_blocks_over_time_chart_orig(self):
-        query = """
-        select timestamp
-        from block_events;
-        """
-        date_fmt = "%Y-%m-%dT%H:%M:%Sz"
-        data = [datetime.strptime(i[0], date_fmt) for i in self.db.query_data(query)]
-        data.sort()
-        start, end = data[0].date(), datetime.utcnow().date()
-        data = [datetime.strftime(i, "%b-%d") for i in data]
-        all_days = {datetime.strftime(k, "%b-%d"):0 for k in [start + timedelta(days=x) for x in range((end-start).days)]}
-        for i in data:
-            all_days[i]+=1
-        all_days = [[[k, v] for k,v in all_days.items()]]
-        import random
-        for series in all_days:
-            for row in series:
-                row[1] = random.randint(0, 100)
-        all_days[0].insert(0, ["Date", "Blocks"])
-        cs = ["Blocks Over Time", .4, 12.83, 12.61, 3.32]
-        self.create_line_chart(all_days, cs, legend=True)
-
     def add_blocks_over_time_chart(self):
         data_dict = {}
         date_fmt = "%Y-%m-%dT%H:%M:%Sz"
+        days_back = -60
 
-        query = "select timestamp from block_events;"
+        query = f"""
+        select timestamp
+        from block_events
+        --where timestamp >= (select max(date(timestamp, '{days_back} days')) from block_events);
+        where timestamp >= date('now', '{days_back} days');
+        """
         data = [dateparser.parse(i[0]) for i in self.db.query_data(query)]
         data.sort()
         data_dict["blocks"] = data
 
-        query = "select dateCreated from approvalRequest where requestType = 1;"
+        query = f"""
+        select dateCreated
+        from approvalRequest
+        where requestType = 1
+        --and dateCreated >= (select max(date(dateCreated, '{days_back} days')) from approvalRequest);
+        and dateCreated >= date('now', '{days_back} days');
+
+        """
         data = [dateparser.parse(i[0]) for i in self.db.query_data(query)]
         data.sort()
         data_dict["requests"] = data
 
-        query = "select dateModified from approvalRequest where resolution >1;"
+        query = f"""
+        select dateModified
+        from approvalRequest
+        where resolution >1
+        --and dateModified > (select max(date(dateModified, '{days_back} days')) from approvalRequest);
+        and dateModified >= date('now', '{days_back} days');
+        """
         data = [dateparser.parse(i[0]) for i in self.db.query_data(query)]
         data.sort()
         data_dict["approved"] = data
 
-        query = "select dateModified from approvalRequest where resolution = 1;"
+        query = f"""
+        select dateModified
+        from approvalRequest
+        where resolution = 1
+        --and dateModified > (select max(date(dateModified, '{days_back} days')) from approvalRequest);
+        and dateModified >= date('now', '{days_back} days');
+        """
         data = [dateparser.parse(i[0]) for i in self.db.query_data(query)]
         data.sort()
         data_dict["rejected"] = data
 
-        start = min([data_dict[metric][0].date() for metric in data_dict])
+        start = min([data_dict[metric][0].date() for metric in data_dict if data_dict[metric]])
+        start = datetime.date(datetime.now()) - timedelta(days=60) 
+
         end = datetime.utcnow().date()
         span = (end - start).days + 1
 
+        # initialize to zero out all days and metrics
         all_days = {}
         for metric in data_dict:
-            all_days[metric] = {str(k):0 for k in [start + timedelta(days=x) for x in range(span)]}
+            #all_days[metric] = {str(k):0 for k in [start + timedelta(days=x) for x in range(span)]}
+            all_days[metric] = {k:0 for k in [start + timedelta(days=x) for x in range(span)]}
 
+        # add up the actual counts
         for metric in data_dict:
             for i in data_dict[metric]:
-                date = str(i.date())
+                #date = str(i.date())
+                date = i.date()
                 all_days[metric][date] += 1
+
+        # format the dates
+        all_days = {metric: {datetime.strftime(i, "%b-%d"):all_days[metric][i] for i in all_days[metric]} for metric in all_days}
+
         rows = []
         import random
         for x, metric in enumerate(all_days):
             rows.append([["Date", metric]])
             for date in all_days[metric]:
-                #rows[x].append([date, all_days[metric][date]])
-                rows[x].append([date, random.randint(0, 20)])
+                rows[x].append([date, all_days[metric][date]])
+                #rows[x].append([date, random.randint(0, 20)])
         cs = ["Blocks Over Time", .4, 12.83, 12.61, 3.32]
         self.create_line_chart(rows, cs, legend=True)
 
     def add_top_blocking_files_table(self):
-        query = """
+        days_back = "30"
+        query = f"""
         select filename,
         count(*)
         from block_events
-        where timestamp >= (select max(date(timestamp, '-30 days')) from block_events)
+        --where timestamp >= (select max(date(timestamp, '-30 days')) from block_events)
+        where timestamp >= date('now', '-{days_back} days')
         group by filename
         order by count(*) desc;
         """
@@ -722,17 +740,19 @@ class ac_report(object):
 
     def add_block_text(self):
         ts = [4.58, 16.11, 4.27, 1, 18]
-        text = "Over the last 30 days there were:"
+        days_back = "30"
+        text = f"Over the last {days_back} days there were:"
         self.create_text_box(self.main_slide, text, ts, alignment="center")
-        
-        query = "select count(*) from approvalRequest;"
+
+        query = f"select count(*) from approvalRequest where dateModified >= date('now', '-{days_back} days');"
         total_approvals = self.db.query_data(query)[0][0]
 
-        query = """
+        query = f"""
         select
         count(*)
         from block_events
-        where timestamp >= (select max(date(timestamp, '-90 days')) from block_events);
+        --where timestamp >= (select max(date(timestamp, '-90 days')) from block_events);
+        where timestamp >= date('now', '-{days_back} days');
         """
         total_blocks = self.db.query_data(query)[0][0]
 
@@ -749,27 +769,29 @@ class ac_report(object):
         self.create_text_box(self.main_slide, text, ts, alignment="center")
 
     def add_approval_breakdown_chart(self):
-        query = """
+        days_back = "30"
+        query = f"""
         select
         case ar.resolution
-            when "0" then "Not Resolved"
-            when "1" then "Rejected"
-            when "2" then "Approved"
-            when "3" then "Rule Change"
-            when "4" then "Installer"
-            when "5" then "Updater"
-            when "6" then "Publisher"
-            when "7" then "Other"
+            when "0" then 'Not Resolved'
+            when "1" then 'Rejected'
+            when "2" then 'Approved'
+            when "3" then 'Rule Change'
+            when "4" then 'Installer'
+            when "5" then 'Updater'
+            when "6" then 'Publisher'
+            when "7" then 'Other'
         end as resolution_type,
         count(*)
         from approvalRequest ar
-        where dateCreated >= (select max(date(timestamp, '-30 days')) from block_events)
-        group by resolution_type;
+        --where dateCreated >= (select max(date(timestamp, '-30 days')) from block_events)
+        where dateCreated >= date('now', '-{days_back} days')
+        group by ar.resolution;
         """
         data = self.db.query_data(query)
-        cs = ["Approval Request Resolution", 9.32, 15.87, 4.16, 4.16]
-        self.create_pie_chart(data, cs)
-
+        if data:
+            cs = ["Approval Request Resolution", 9.32, 15.87, 4.16, 4.16]
+            self.create_pie_chart(data, cs)
 
     def add_arrows(self):
         arrow_s = [4.3, 17.01, 1.5, .5, 10, "left", 0]
@@ -777,8 +799,6 @@ class ac_report(object):
 
         arrow_s = [7.15, 18.47, 2.15, .5, 10, "right", 0]
         self.create_arrow(self.main_slide, arrow_s)
-
-
 
 
 def create_report():

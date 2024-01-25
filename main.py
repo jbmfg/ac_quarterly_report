@@ -59,9 +59,11 @@ def fake_requests():
     import os
     db = sqlite_connector.sqlite_db("ac_exec_report.db")
     for i in [f for f in os.listdir("./fake_data") if f.endswith(".json")]:
+        full_path = os.path.join("./fake_data", i)
         if "tops_" in i: continue
+        if os.stat(full_path).st_size == 0 : continue
         table = i.replace(".json", "")
-        data = json.load(open(os.path.join("./fake_data", i), "r"))
+        data = json.load(open(full_path, "rb"))
         import api_actions
         data = api_actions._normalize_json(data)[0]
         if data: db.insert_data(table, data)
@@ -221,5 +223,5 @@ def main():
     deployed_version_status(db)
 
 if __name__ == "__main__":
-    #main()
-    fake_requests()
+    main()
+    #fake_requests()

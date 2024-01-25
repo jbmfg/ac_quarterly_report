@@ -1021,6 +1021,21 @@ class Driftreport(Base):
     sDrift: sqlalchemy.orm.Mapped[typing.Optional[float]] = sqlalchemy.orm.mapped_column()
     percentageDone: sqlalchemy.orm.Mapped[typing.Optional[int]] = sqlalchemy.orm.mapped_column()
 
+class Trusteduser(Base):
+    __tablename__ = "trustedUser"
+    id: sqlalchemy.orm.Mapped[typing.Optional[int]] = sqlalchemy.orm.mapped_column(primary_key=True)
+    name: sqlalchemy.orm.Mapped[typing.Optional[str]] = sqlalchemy.orm.mapped_column()
+    userSid: sqlalchemy.orm.Mapped[typing.Optional[str]] = sqlalchemy.orm.mapped_column()
+    description: sqlalchemy.orm.Mapped[typing.Optional[str]] = sqlalchemy.orm.mapped_column()
+    dateCreated: sqlalchemy.orm.Mapped[typing.Optional[str]] = sqlalchemy.orm.mapped_column()
+    dateModified: sqlalchemy.orm.Mapped[typing.Optional[str]] = sqlalchemy.orm.mapped_column()
+    clVersion: sqlalchemy.orm.Mapped[typing.Optional[int]] = sqlalchemy.orm.mapped_column()
+    createdByUserId: sqlalchemy.orm.Mapped[typing.Optional[int]] = sqlalchemy.orm.mapped_column()
+    createdBy: sqlalchemy.orm.Mapped[typing.Optional[str]] = sqlalchemy.orm.mapped_column()
+    modifiedByUserId: sqlalchemy.orm.Mapped[typing.Optional[int]] = sqlalchemy.orm.mapped_column()
+    modifiedBy: sqlalchemy.orm.Mapped[typing.Optional[str]] = sqlalchemy.orm.mapped_column()
+    platformId: sqlalchemy.orm.Mapped[typing.Optional[int]] = sqlalchemy.orm.mapped_column()
+
 class sqlite_db(object):
     def __init__(self, filename):
         self.engine = self._get_engine(filename)

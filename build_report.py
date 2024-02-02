@@ -528,7 +528,7 @@ class ac_report(object):
         data.sort()
         start, end = data[0].date(), datetime.utcnow().date()
         data = [datetime.strftime(i, "%b-%d") for i in data]
-        all_days = {datetime.strftime(k, "%b-%d"):0 for k in [start + timedelta(days=x) for x in range((end-start).days)]}
+        all_days = {datetime.strftime(k, "%b-%d"):0 for k in [start + timedelta(days=x) for x in range((end-start).days + 1)]}
         for i in data:
             all_days[i]+=1
         all_days = [[[k, v] for k,v in all_days.items()]]
